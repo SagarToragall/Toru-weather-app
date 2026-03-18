@@ -1,4 +1,4 @@
-# Neon Weather App
+# TORU Weather App
 
 A simple Node/Express weather app project.
 
