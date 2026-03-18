@@ -1,0 +1,189 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>TORU Weather</title>
+
+  <!-- Tailwind -->
+  <script src="https://cdn.tailwindcss.com"></script>
+
+  <!-- Chart -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+  <!-- Favicon -->
+  <link rel="icon" href="https://cdn-icons-png.flaticon.com/512/869/869869.png" />
+
+  <!-- Animation -->
+  <style>
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(20px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+    .animate-fadeIn {
+      animation: fadeIn 1s ease-in-out;
+    }
+  </style>
+</head>
+
+<body class="relative min-h-screen flex items-center justify-center text-white overflow-hidden">
+
+<div class="animate-fadeIn">
+
+  <!-- 🌍 Background -->
+  <div class="absolute inset-0">
+    <img src="https://upload.wikimedia.org/wikipedia/commons/8/80/World_map_-_low_resolution.svg"
+         class="w-full h-full object-cover opacity-20" />
+  </div>
+
+  <div class="absolute inset-0 bg-black/70"></div>
+
+  <!-- 🌤️ CARD -->
+  <div class="relative bg-white/10 backdrop-blur-2xl p-10 rounded-3xl text-center shadow-2xl w-full max-w-md border border-white/20 transition-all duration-500 hover:scale-105">
+
+    <!-- Logo -->
+    <img src="https://cdn-icons-png.flaticon.com/512/869/869869.png"
+         class="w-16 mx-auto mb-4" />
+
+    <!-- Title -->
+    <h1 class="text-4xl font-bold mb-6 text-cyan-400 animate-pulse drop-shadow-[0_0_20px_#00f5ff]">
+      🌤️ TORU Weather
+    </h1>
+
+    <!-- Input -->
+    <input id="cityInput" placeholder="Enter city..."
+      class="w-full p-3 rounded-xl text-black mb-4" />
+
+    <!-- Buttons -->
+    <button onclick="getWeather()"
+      class="bg-cyan-500 hover:bg-cyan-400 px-6 py-3 rounded-xl font-bold w-full mb-3 transition-all hover:scale-105 hover:shadow-[0_0_20px_#00f5ff]">
+      Search
+    </button>
+
+    <button onclick="getLocationWeather()"
+      class="bg-green-500 hover:bg-green-400 px-6 py-3 rounded-xl font-bold w-full mb-3 transition-all hover:scale-105 hover:shadow-[0_0_20px_#00ff88]">
+      📍 Use My Location
+    </button>
+
+    <button onclick="startVoiceSearch()"
+      class="bg-purple-500 hover:bg-purple-400 px-6 py-3 rounded-xl font-bold w-full mb-3 transition-all hover:scale-105 hover:shadow-[0_0_20px_#c084fc]">
+      🎤 Speak City
+    </button>
+
+    <button onclick="toggleTheme()"
+      class="bg-yellow-400 hover:bg-yellow-300 px-6 py-3 rounded-xl font-bold w-full text-black mb-3 transition-all hover:scale-105 hover:shadow-[0_0_20px_#facc15]">
+      🌙 Toggle Mode
+    </button>
+
+    <!-- Result -->
+    <h2 id="result" class="mt-6 text-2xl font-semibold text-black bg-white rounded-xl p-2"></h2>
+
+    <!-- Chart -->
+    <canvas id="tempChart" class="mt-6"></canvas>
+
+  </div>
+
+</div>
+
+<script>
+async function getWeather(city) {
+  city = city || document.getElementById("cityInput").value;
+
+  document.getElementById("result").innerText = "Loading...";
+
+  const res = await fetch(`/api/weather/${city}`);
+  const data = await res.json();
+
+  if (data && data.weather && data.weather.main) {
+    document.getElementById("result").innerText =
+      data.weather.name + " : " + data.weather.main.temp + "°C";
+
+    drawChart(data.forecast);
+
+    const temp = data.weather.main.temp;
+    const condition = data.weather.weather[0].main;
+
+    if (temp > 35) alert("🔥 Heat Alert!");
+    if (condition === "Rain") alert("☔ Rain Alert!");
+    if (data.weather.wind.speed > 10) alert("💨 Strong Wind!");
+  } else {
+    document.getElementById("result").innerText = "❌ Error";
+  }
+}
+
+function getLocationWeather() {
+  document.getElementById("result").innerText = "Loading...";
+
+  navigator.geolocation.getCurrentPosition(async (pos) => {
+    const lat = pos.coords.latitude;
+    const lon = pos.coords.longitude;
+
+    const res = await fetch(`/api/weather/${lat},${lon}`);
+    const data = await res.json();
+
+    if (data && data.weather && data.weather.main) {
+      document.getElementById("result").innerText =
+        data.weather.name + " : " + data.weather.main.temp + "°C";
+    }
+  });
+}
+
+function startVoiceSearch() {
+  const recognition = new (window.SpeechRecognition || window.webkitSpeechRecognition)();
+  recognition.lang = "en-US";
+
+  recognition.onresult = function (event) {
+    const city = event.results[0][0].transcript;
+    document.getElementById("cityInput").value = city;
+    getWeather(city);
+  };
+
+  recognition.start();
+}
+
+function drawChart(forecast) {
+  const temps = forecast.map(f => f.main.temp);
+  const labels = forecast.map(f => new Date(f.dt * 1000).getHours() + ":00");
+
+  const ctx = document.getElementById('tempChart').getContext('2d');
+
+  if (window.myChart) window.myChart.destroy();
+
+  window.myChart = new Chart(ctx, {
+    type: 'line',
+    data: {
+      labels: labels,
+      datasets: [{
+        label: 'Temperature (°C)',
+        data: temps,
+        borderColor: '#00f5ff',
+        backgroundColor: 'rgba(0,245,255,0.2)',
+        borderWidth: 3,
+        tension: 0.4
+      }]
+    },
+    options: {
+      plugins: {
+        legend: { labels: { color: '#fff' } }
+      },
+      scales: {
+        x: {
+          ticks: { color: '#fff' },
+          grid: { color: 'rgba(255,255,255,0.1)' }
+        },
+        y: {
+          ticks: { color: '#fff' },
+          grid: { color: 'rgba(255,255,255,0.1)' }
+        }
+      }
+    }
+  });
+}
+
+function toggleTheme() {
+  document.body.classList.toggle("bg-white");
+  document.body.classList.toggle("text-black");
+}
+</script>
+
+</body>
+</html>
